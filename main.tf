@@ -8,14 +8,17 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-2"
+  region = var.region
+}
+
+variable "region" {
+  default = "us-east-2"
 }
 
 resource "random_id" "suffix" {
   byte_length = 4
 }
 
-# S3 Bucket
 resource "aws_s3_bucket" "file_bucket" {
   bucket = "lambda-file-processor-${random_id.suffix.hex}"
 }
@@ -43,6 +46,17 @@ resource "aws_s3_bucket_lifecycle_configuration" "auto_cleanup" {
   }
 }
 
+# SNS Topic & Email Subscription
+resource "aws_sns_topic" "uploads_notifications" {
+  name = "s3-file-upload-notifications"
+}
+
+resource "aws_sns_topic_subscription" "email" {
+  topic_arn = aws_sns_topic.uploads_notifications.arn
+  protocol  = "email"
+  endpoint  = "kzagbabiaka@gmail.com"  # Replace with your email
+}
+
 # Lambda Function
 resource "aws_lambda_function" "file_processor" {
   filename      = "lambda.zip"
@@ -54,7 +68,7 @@ resource "aws_lambda_function" "file_processor" {
   environment {
     variables = {
       S3_BUCKET      = aws_s3_bucket.file_bucket.id
-      SNS_TOPIC_ARN = aws_sns_topic.uploads_notifications.arn
+      SNS_TOPIC_ARN  = aws_sns_topic.uploads_notifications.arn
     }
   }
 
@@ -65,7 +79,7 @@ resource "aws_lambda_function" "file_processor" {
   depends_on = [aws_iam_role_policy.cloudwatch_logs]
 }
 
-# IAM Role for Lambda
+# IAM for Lambda
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda-exec-role"
 
@@ -94,10 +108,7 @@ resource "aws_iam_role_policy" "s3_access" {
     Version = "2012-10-17",
     Statement = [{
       Effect = "Allow",
-      Action = [
-        "s3:GetObject",
-        "s3:PutObject"
-      ],
+      Action = ["s3:GetObject", "s3:PutObject"],
       Resource = "${aws_s3_bucket.file_bucket.arn}/*"
     }]
   })
@@ -138,6 +149,25 @@ resource "aws_lambda_permission" "s3" {
   source_arn    = aws_s3_bucket.file_bucket.arn
 }
 
+# S3 Event Notifications (Lambda + SNS)
+resource "aws_s3_bucket_notification" "lambda_trigger" {
+  bucket = aws_s3_bucket.file_bucket.id
+
+  lambda_function {
+    lambda_function_arn = aws_lambda_function.file_processor.arn
+    events              = ["s3:ObjectCreated:*"]
+  }
+
+  topic {
+    topic_arn = aws_sns_topic.uploads_notifications.arn
+    events    = ["s3:ObjectCreated:*"]
+  }
+
+  depends_on = [
+    aws_lambda_permission.s3
+  ]
+}
+
 # API Gateway
 resource "aws_api_gateway_rest_api" "file_api" {
   name = "file-processor-api"
@@ -166,41 +196,13 @@ resource "aws_api_gateway_integration" "lambda" {
 }
 
 resource "aws_api_gateway_deployment" "deployment" {
-  depends_on = [aws_api_gateway_integration.lambda]
+  depends_on  = [aws_api_gateway_integration.lambda]
   rest_api_id = aws_api_gateway_rest_api.file_api.id
   stage_name  = "prod"
 }
 
 output "api_url" {
-  value = "${aws_api_gateway_deployment.deployment.invoke_url}/prod"
-}
-
-# SNS Topic and Subscription
-resource "aws_sns_topic" "uploads_notifications" {
-  name = "s3-file-upload-notifications"
-}
-
-resource "aws_sns_topic_subscription" "email" {
-  topic_arn = aws_sns_topic.uploads_notifications.arn
-  protocol  = "email"
-  endpoint  = "kzagbabiaka@gmail.com" # Replace with your actual email
-}
-
-# S3 Notifications (Lambda + SNS)
-resource "aws_s3_bucket_notification" "lambda_trigger" {
-  bucket = aws_s3_bucket.file_bucket.id
-
-  lambda_function {
-    lambda_function_arn = aws_lambda_function.file_processor.arn
-    events              = ["s3:ObjectCreated:*"]
-  }
-
-  topic {
-    topic_arn = aws_sns_topic.uploads_notifications.arn
-    events    = ["s3:ObjectCreated:*"]
-  }
-
-  depends_on = [aws_lambda_permission.s3]
+  value = "https://${aws_api_gateway_rest_api.file_api.id}.execute-api.${var.region}.amazonaws.com/prod/"
 }
 
 # CloudWatch Dashboard
@@ -221,7 +223,7 @@ resource "aws_cloudwatch_dashboard" "main" {
           ],
           period = 300,
           stat   = "Sum",
-          region = "us-east-2",
+          region = var.region,
           title  = "Lambda Invocations"
         }
       }
