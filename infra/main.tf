@@ -8,7 +8,7 @@ terraform {
 }
 
 provider "aws" {
-  region = "us-east-1"
+  region = "us-east-2"
 }
 
 # S3 Bucket for File Uploads
@@ -230,5 +230,5 @@ resource "aws_s3_bucket_notification" "lambda_trigger" {
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.uploads_notifications.arn
   protocol  = "email"
-  endpoint  = "thandonoe.ndlovu@gmail.com"  # Replace with your email
+  endpoint  = "kzagbabiaka@gmail.com"  # Replace with your email
 }
