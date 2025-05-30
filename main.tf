@@ -206,6 +206,10 @@ output "api_url" {
   value = "https://${aws_api_gateway_rest_api.file_api.id}.execute-api.${var.region}.amazonaws.com/${aws_api_gateway_stage.prod.stage_name}/"
 }
 
+output "bucket_name" {
+  value = aws_s3_bucket.file_bucket.id
+}
+
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "LambdaProcessor-Dashboard"
 
