@@ -40,13 +40,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "auto_cleanup" {
     id     = "delete-old-files"
     status = "Enabled"
 
+    filter {
+      prefix = ""
+    }
+
     expiration {
       days = 30
     }
   }
 }
 
-# SNS Topic & Email Subscription
 resource "aws_sns_topic" "uploads_notifications" {
   name = "s3-file-upload-notifications"
 }
@@ -54,10 +57,9 @@ resource "aws_sns_topic" "uploads_notifications" {
 resource "aws_sns_topic_subscription" "email" {
   topic_arn = aws_sns_topic.uploads_notifications.arn
   protocol  = "email"
-  endpoint  = "kzagbabiaka@gmail.com"  # Replace with your email
+  endpoint  = "kzagbabiaka@gmail.com"
 }
 
-# Lambda Function
 resource "aws_lambda_function" "file_processor" {
   filename      = "lambda.zip"
   function_name = "s3-file-processor"
@@ -79,7 +81,6 @@ resource "aws_lambda_function" "file_processor" {
   depends_on = [aws_iam_role_policy.cloudwatch_logs]
 }
 
-# IAM for Lambda
 resource "aws_iam_role" "lambda_exec" {
   name = "lambda-exec-role"
 
@@ -132,7 +133,6 @@ resource "aws_iam_role_policy" "cloudwatch_logs" {
   })
 }
 
-# Lambda Permissions
 resource "aws_lambda_permission" "apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
@@ -149,7 +149,6 @@ resource "aws_lambda_permission" "s3" {
   source_arn    = aws_s3_bucket.file_bucket.arn
 }
 
-# S3 Event Notifications (Lambda + SNS)
 resource "aws_s3_bucket_notification" "lambda_trigger" {
   bucket = aws_s3_bucket.file_bucket.id
 
@@ -163,12 +162,9 @@ resource "aws_s3_bucket_notification" "lambda_trigger" {
     events    = ["s3:ObjectCreated:*"]
   }
 
-  depends_on = [
-    aws_lambda_permission.s3
-  ]
+  depends_on = [aws_lambda_permission.s3]
 }
 
-# API Gateway
 resource "aws_api_gateway_rest_api" "file_api" {
   name = "file-processor-api"
 }
@@ -196,16 +192,20 @@ resource "aws_api_gateway_integration" "lambda" {
 }
 
 resource "aws_api_gateway_deployment" "deployment" {
-  depends_on  = [aws_api_gateway_integration.lambda]
   rest_api_id = aws_api_gateway_rest_api.file_api.id
-  stage_name  = "prod"
+  depends_on  = [aws_api_gateway_integration.lambda]
+}
+
+resource "aws_api_gateway_stage" "prod" {
+  rest_api_id   = aws_api_gateway_rest_api.file_api.id
+  deployment_id = aws_api_gateway_deployment.deployment.id
+  stage_name    = "prod"
 }
 
 output "api_url" {
-  value = "https://${aws_api_gateway_rest_api.file_api.id}.execute-api.${var.region}.amazonaws.com/prod/"
+  value = "https://${aws_api_gateway_rest_api.file_api.id}.execute-api.${var.region}.amazonaws.com/${aws_api_gateway_stage.prod.stage_name}/"
 }
 
-# CloudWatch Dashboard
 resource "aws_cloudwatch_dashboard" "main" {
   dashboard_name = "LambdaProcessor-Dashboard"
 
