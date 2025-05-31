@@ -25,7 +25,7 @@ def lambda_handler(event, context):
         'Content-Type': 'application/json'
     }
 
-    # ✅ Log the full incoming event for debugging
+    # Log the full incoming event for debugging
     logger.info("Lambda triggered. Full event: " + json.dumps(event))
 
     try:
