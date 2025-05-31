@@ -11,18 +11,11 @@ pipeline {
         TF_IN_AUTOMATION      = 'true'
     }
     stages {
-        stage('Checkout Code') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Install Tools') {
             steps {
                 sh '''
                     yum update -y --skip-broken
-                    yum install -y python3 python3-pip zip wget unzip
-                    pip3 install --no-cache-dir pytest bandit
+                    yum install -y wget unzip
                 '''
             }
         }
@@ -38,55 +31,19 @@ pipeline {
             }
         }
 
-        stage('Prepare Lambda Package') {
-            steps {
-                sh '''
-                    cd lambda
-                    pip3 install -r requirements.txt -t . 
-                    zip -r ../infra/lambda.zip .
-                '''
-            }
-        }
-
-        stage('Terraform Init & Apply') {
+        stage('Terraform Destroy') {
             steps {
                 dir('infra') {
                     sh '''
                         terraform init
-                        terraform apply -auto-approve
+                        terraform destroy -auto-approve
                     '''
-                }
-            }
-        }
-
-        stage('Verify Deployment') {
-            steps {
-                script {
-                    def api_url = sh(
-                        script: 'cd infra && terraform output -raw api_url',
-                        returnStdout: true
-                    ).trim()
-                    echo "API Gateway Endpoint: ${api_url}"
-                    sh "curl -s ${api_url}"
-                }
-            }
-        }
-
-        stage('Destroy Infrastructure') {
-            steps {
-                dir('infra') {
-                    sh 'terraform destroy -auto-approve'
                 }
             }
         }
     }
 
     post {
-        failure {
-            dir('infra') {
-                sh 'terraform destroy -auto-approve'
-            }
-        }
         cleanup {
             cleanWs()
         }
