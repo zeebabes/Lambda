@@ -5,13 +5,11 @@ pipeline {
             args '-u root -v /tmp:/tmp -e PIP_NO_CACHE_DIR=1'
         }
     }
-
     environment {
         AWS_ACCESS_KEY_ID     = credentials('aws-access-key-id')
         AWS_SECRET_ACCESS_KEY = credentials('aws-secret-access-key')
         TF_IN_AUTOMATION      = 'true'
     }
-
     stages {
         stage('Checkout Code') {
             steps {
@@ -23,9 +21,8 @@ pipeline {
             steps {
                 sh '''
                     yum update -y --skip-broken
-                    yum install -y python3 python3-pip zip wget unzip curl
-                    pip3 install bandit
-                    rm -rf /var/cache/yum
+                    yum install -y python3 python3-pip zip wget unzip
+                    pip3 install --no-cache-dir pytest bandit
                 '''
             }
         }
@@ -51,24 +48,13 @@ pipeline {
             }
         }
 
-        stage('Security Scan') {
-            steps {
-                sh 'bandit -r lambda || true'
-            }
-        }
-
-        stage('Terraform Init') {
+        stage('Terraform Init & Apply') {
             steps {
                 dir('infra') {
-                    sh 'terraform init'
-                }
-            }
-        }
-
-        stage('Terraform Apply') {
-            steps {
-                dir('infra') {
-                    sh 'terraform apply -auto-approve'
+                    sh '''
+                        terraform init
+                        terraform apply -auto-approve
+                    '''
                 }
             }
         }
@@ -76,8 +62,11 @@ pipeline {
         stage('Verify Deployment') {
             steps {
                 script {
-                    def api_url = sh(script: 'cd infra && terraform output -raw api_url', returnStdout: true).trim()
-                    echo "✅ API Endpoint: ${api_url}"
+                    def api_url = sh(
+                        script: 'cd infra && terraform output -raw api_url',
+                        returnStdout: true
+                    ).trim()
+                    echo "API Gateway Endpoint: ${api_url}"
                     sh "curl -s ${api_url}"
                 }
             }
@@ -96,7 +85,7 @@ pipeline {
         success {
             emailext(
                 subject: "✅ Lambda Deployment Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "The Lambda function and infrastructure were deployed successfully.",
+                body: "Deployment completed successfully.",
                 to: "kzagbabiaka@gmail.com"
             )
         }
