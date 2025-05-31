@@ -149,7 +149,7 @@ resource "aws_lambda_permission" "s3" {
   source_arn    = aws_s3_bucket.file_bucket.arn
 }
 
-resource "aws_s3_bucket_notification" "lambda_trigger" {
+# resource "aws_s3_bucket_notification" "lambda_trigger" {
   bucket = aws_s3_bucket.file_bucket.id
 
   lambda_function {
