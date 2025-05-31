@@ -25,7 +25,10 @@ def lambda_handler(event, context):
         'Content-Type': 'application/json'
     }
 
-    # Log the full incoming event for debugging
+    # 🔍 Raw print to confirm Lambda starts
+    print("Lambda started - raw")
+
+    # ✅ Log full event for S3 trigger visibility
     logger.info("Lambda triggered. Full event: " + json.dumps(event))
 
     try:
@@ -43,7 +46,6 @@ def lambda_handler(event, context):
                 "event_time": record['eventTime']
             }
 
-            # Log file receipt
             logger.info(json.dumps({
                 "action": "file_received",
                 **file_info
@@ -75,7 +77,11 @@ def lambda_handler(event, context):
             "stack_trace": traceback.format_exc(),
             "event": event
         }
+
         logger.error(json.dumps(error_log))
+
+        # 🔥 Fallback print if logger fails
+        print("ERROR: " + json.dumps(error_log))
 
         return {
             'statusCode': 500,
