@@ -1,3 +1,4 @@
+
 terraform {
   required_providers {
     aws = {
@@ -149,17 +150,12 @@ resource "aws_lambda_permission" "s3" {
   source_arn    = aws_s3_bucket.file_bucket.arn
 }
 
-# resource "aws_s3_bucket_notification" "lambda_trigger" {
+resource "aws_s3_bucket_notification" "lambda_trigger" {
   bucket = aws_s3_bucket.file_bucket.id
 
   lambda_function {
     lambda_function_arn = aws_lambda_function.file_processor.arn
     events              = ["s3:ObjectCreated:*"]
-  }
-
-  topic {
-    topic_arn = aws_sns_topic.uploads_notifications.arn
-    events    = ["s3:ObjectCreated:*"]
   }
 
   depends_on = [aws_lambda_permission.s3]
