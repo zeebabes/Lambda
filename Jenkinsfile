@@ -71,6 +71,14 @@ pipeline {
                 }
             }
         }
+
+        stage('Destroy Infrastructure') {
+            steps {
+                dir('infra') {
+                    sh 'terraform destroy -auto-approve'
+                }
+            }
+        }
     }
 
     post {
