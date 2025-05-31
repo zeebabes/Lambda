@@ -42,7 +42,7 @@ pipeline {
             steps {
                 sh '''
                     cd lambda
-                    pip3 install -r requirements.txt -t .
+                    pip3 install -r requirements.txt -t . 
                     zip -r ../infra/lambda.zip .
                 '''
             }
@@ -81,13 +81,6 @@ pipeline {
         }
         cleanup {
             cleanWs()
-        }
-        success {
-            emailext(
-                subject: "✅ Lambda Deployment Successful: ${env.JOB_NAME} #${env.BUILD_NUMBER}",
-                body: "Deployment completed successfully.",
-                to: "kzagbabiaka@gmail.com"
-            )
         }
     }
 }
