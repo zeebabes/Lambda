@@ -24,7 +24,10 @@ def lambda_handler(event, context):
         'Access-Control-Allow-Methods': 'POST,OPTIONS',
         'Content-Type': 'application/json'
     }
-    
+
+    print("Received event:", json.dumps(event))
+    print("SNS_TOPIC_ARN:", SNS_TOPIC_ARN)
+
     try:
         audit_log = {
             "event_time": datetime.utcnow().isoformat(),
@@ -39,13 +42,15 @@ def lambda_handler(event, context):
                 "size": record['s3']['object'].get('size', 'unknown'),
                 "event_time": record['eventTime']
             }
-            
+
+            print("Processing file:", file_info)
+
             # Log file receipt
             logger.info(json.dumps({
                 "action": "file_received",
                 **file_info
             }))
-            
+
             # Send notification
             if SNS_TOPIC_ARN:
                 sns_response = sns.publish(
@@ -57,7 +62,8 @@ def lambda_handler(event, context):
                     "action": "notification_sent",
                     "sns_message_id": sns_response['MessageId']
                 }))
-            
+                print("SNS notification sent. MessageId:", sns_response['MessageId'])
+
             audit_log["processed_files"].append(file_info)
 
         return {
@@ -72,8 +78,11 @@ def lambda_handler(event, context):
             "stack_trace": traceback.format_exc(),
             "event": event
         }
+
         logger.error(json.dumps(error_log))
-        
+        print("Error occurred:", str(e))
+        print(traceback.format_exc())
+
         return {
             'statusCode': 500,
             'body': json.dumps({"error": "File processing failed"}),
