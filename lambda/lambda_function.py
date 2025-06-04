@@ -29,13 +29,21 @@ def lambda_handler(event, context):
     print("SNS_TOPIC_ARN:", SNS_TOPIC_ARN)
 
     try:
+        # Option 2: Return "hello" if no S3 records are present
+        if not event.get('Records'):
+            return {
+                'statusCode': 200,
+                'body': json.dumps({"message": "hello"}),
+                'headers': headers
+            }
+
         audit_log = {
             "event_time": datetime.utcnow().isoformat(),
             "aws_request_id": context.aws_request_id,
             "processed_files": []
         }
 
-        for record in event.get('Records', []):
+        for record in event['Records']:
             file_info = {
                 "bucket": record['s3']['bucket']['name'],
                 "key": record['s3']['object']['key'],
